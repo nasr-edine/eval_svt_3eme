@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Évaluations blanches – SVT (3e)</title>
+<style>
+:root{--bg:#edf3ee;--ink:#17301f;--mut:#566b5c;--acc:#1f6f4a;--accl:#dcf1e4;--bad:#b42318;--badl:#fde8e6;--ok:#157f3b;--line:#cbd9cf;--amb:#fff4d6}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:780px;margin:0 auto;padding:16px}h1{font-size:1.6rem;margin:.2em 0}h2{font-size:1.15rem;margin:0 0 .6em}
+.card{background:#fff;border:2px solid var(--line);border-radius:14px;padding:18px;margin:14px 0}.hide{display:none}.sub{color:var(--mut);font-size:.95rem}
+button{font:inherit;font-weight:600;background:var(--acc);color:#fff;border:0;border-radius:10px;padding:12px 22px;cursor:pointer}
+button.sec{background:#fff;color:var(--ink);border:2px solid var(--line)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #f59e0b;outline-offset:2px}
+input,select{font:inherit;border:2px solid var(--line);border-radius:8px;padding:8px 10px;max-width:100%}
+#bar{position:sticky;top:0;z-index:5;background:var(--ink);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:10px 16px}
+#timer{font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums}#timer.low{color:#fdba74}
+.q{padding:10px 0;border-top:1px solid var(--line)}.q:first-of-type{border-top:0}
+.fl{display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap}.fl>span{min-width:90px}
+table.g{border-collapse:collapse;margin:8px 0}table.g td,table.g th{border:2px solid var(--line);padding:6px;text-align:center}table.g input{width:90px;text-align:center}
+.big{font-size:3rem;font-weight:800;line-height:1}.tip{background:var(--accl);border-radius:10px;padding:10px 14px;margin:8px 0}
+.warn{background:var(--badl);color:var(--bad);border-radius:10px;padding:8px 12px;font-size:.9rem}
+.r{padding:4px 8px;border-radius:6px;margin:3px 0;font-size:.95rem}.r.y{background:#e8f7ee}.r.n{background:var(--badl)}
+.lv{display:flex;align-items:center;gap:10px;margin:6px 0}.lv span:first-child{flex:0 0 230px;font-size:.95rem}.lv .t{flex:1;height:12px;background:var(--line);border-radius:6px}.lv .t i{display:block;height:100%;background:var(--acc);border-radius:6px}
+svg{max-width:100%;height:auto;background:#f6faf7;border:2px solid var(--line);border-radius:10px}
+</style></head><body>
+<div id="bar" class="hide"><span id="where"></span><span id="timer">30:00</span></div>
+<main>
+<section id="home" class="card">
+  <h1>Évaluations blanches de SVT</h1>
+  <p class="sub">Entraînement avant le contrôle du mardi 3 novembre · 2 évaluations de 30 minutes · 20 points chacune</p>
+  <ul><li>Fais <b>une évaluation à la fois</b>, dans le calme, avec ton brouillon papier et sans cahier.</li>
+  <li>Le chrono démarre au clic. À 0, l'évaluation est envoyée automatiquement.</li>
+  <li>Pour les tableaux de croisement, écris les génotypes sous la forme <b>M/m</b> ou <b>Rh+/Rh-</b>.</li></ul>
+  <p><label>Prénom <input id="name" value="Aya" autocomplete="off" style="width:150px"></label></p>
+  <p id="cfgwarn" class="warn hide">Google Sheet non configuré : les résultats restent sur cet appareil (voir SHEET_URL).</p>
+  <div id="list"></div>
+</section>
+<section id="exam" class="hide"><div id="qs"></div><p><button id="done">Terminer et envoyer</button></p></section>
+<section id="res" class="hide"></section>
+</main>
+<script>
+const SHEET_URL = "";            // URL Apps Script (…/exec)
+const TOKEN = "change-moi";
+const KEY = "svt-v1";
+// ====== CONTENU ======
+const Q=(q,o)=>({q,f:[{t:"sel",o,a:o[0]}]});
+const P=(q,top,left,c)=>({q,g:{top,left},f:c.map(a=>({t:"gen",a,w:.5}))});
+const N=(q,a)=>({q,f:[{t:"num",a,u:"%"}]});
+const SCHEMA=`<svg viewBox="0 0 360 215" role="img" aria-label="Coupe de la croûte terrestre lors d'un séisme"><rect y="60" width="360" height="155" fill="#d9c9a8"/><line x1="140" y1="215" x2="210" y2="100" stroke="#6b4b2a" stroke-width="5"/>
+<line x1="190" y1="128" x2="190" y2="60" stroke="#333" stroke-dasharray="4 3"/><circle cx="190" cy="128" r="9" fill="#c0392b"/><circle cx="190" cy="128" r="28" fill="none" stroke="#c0392b" stroke-dasharray="5 4"/><circle cx="190" cy="128" r="48" fill="none" stroke="#c0392b" stroke-dasharray="5 4"/>
+<circle cx="190" cy="60" r="5" fill="#2563eb"/><rect x="238" y="36" width="26" height="24" fill="#999"/><path d="M234 36l17-14 17 14z" fill="#777"/><path d="M262 38l-8 10 8 6" stroke="#b42318" stroke-width="3" fill="none"/>
+<g font-weight="700" font-size="15" text-anchor="middle"><g fill="#fff" stroke="#17301f"><circle cx="168" cy="145" r="11"/><circle cx="190" cy="42" r="11"/><circle cx="122" cy="195" r="11"/><circle cx="240" cy="118" r="11"/><circle cx="251" cy="12" r="11"/></g><text x="168" y="150">A</text><text x="190" y="47">B</text><text x="122" y="200">C</text><text x="240" y="123">D</text><text x="251" y="17">E</text></g></svg>`;
+const NOMS=["foyer","épicentre","faille","ondes sismiques","dégâts"];
+const EV={
+gen:{t:"Éval 1 · Transmission des maladies génétiques",min:30,secs:[
+{id:"A",t:"A. Vocabulaire (bilan 4)",tip:"Relis le bilan 4 : allèle dominant (s'exprime avec un seul exemplaire), récessif (deux exemplaires nécessaires), homozygote/hétérozygote, phénotype/génotype.",qs:[
+ Q("Un allèle récessif s'exprime…",["seulement s'il est présent en double exemplaire","dès qu'il est présent en un seul exemplaire","jamais"]),
+ Q("Un individu de génotype M/m est…",["hétérozygote (porteur sain si m est récessif)","homozygote","malade dans tous les cas"]),
+ Q("Le phénotype d'un individu, c'est…",["l'ensemble de ses caractères observables","la combinaison de ses allèles","le nombre de ses chromosomes"]),
+ Q("Un individu sain peut-il porter un allèle responsable d'une maladie récessive ?",["Oui, s'il est hétérozygote","Non, jamais","Oui, mais seulement s'il est malade"]),
+ Q("Le tableau de croisement sert à…",["prévoir les probabilités de transmission d'un caractère","compter les chromosomes d'une cellule","classer les chromosomes par taille"]),
+ Q("Lors de la formation des gamètes, chaque parent transmet…",["un chromosome de chaque paire, donc un allèle de chaque gène","tous ses chromosomes","uniquement ses allèles dominants"])]},
+{id:"B",t:"B. Le facteur Rhésus",tip:"Rh+ est dominant, Rh- récessif. Un individu [Rh-] est forcément Rh-/Rh-. Pour le tableau : gamètes d'un parent en haut, de l'autre à gauche.",qs:[
+ {q:"<b>Exercice 1.</b> Le facteur Rhésus est porté par la paire de chromosomes n°1. L'allèle Rh+ est dominant, Rh- est récessif. Une femme a pour génotype Rh+/Rh-. Son compagnon a deux allèles Rh- sur ses chromosomes n°1.",f:[]},
+ Q("L'homme est-il homozygote ou hétérozygote ?",["homozygote","hétérozygote"]),
+ Q("Quel est le phénotype de l'homme ?",["[Rh-]","[Rh+]"]),
+ P("Complète le tableau de croisement (gamètes de la femme en haut, de l'homme à gauche).",["Rh+","Rh-"],["Rh-","Rh-"],["Rh+/Rh-","Rh-/Rh-","Rh+/Rh-","Rh-/Rh-"]),
+ N("Quel est le pourcentage de chances d'avoir un enfant de phénotype [Rh+] ?",50)]},
+{id:"C",t:"C. La mucoviscidose",tip:"Parents sains + enfant malade = parents hétérozygotes M/m. Le croisement M/m × M/m donne 25 % M/M, 50 % M/m, 25 % m/m.",qs:[
+ {q:"<b>Exercice 2.</b> La mucoviscidose est une maladie génétique portée par la paire n°7. L'allèle M (sain) est dominant, l'allèle m (maladie) est récessif. Deux parents sains ont un enfant malade et attendent un second enfant.",f:[]},
+ Q("Quel est le génotype de l'enfant malade ?",["m/m","M/m","M/M"]),
+ Q("Pourquoi ?",["La maladie est récessive : elle ne s'exprime qu'avec deux allèles m","La maladie est dominante : un seul allèle m suffit","Il a reçu un allèle M de chaque parent"]),
+ Q("Quel est le génotype des parents sains ?",["M/m (hétérozygotes)","M/M","m/m"]),
+ Q("Comment expliquer que deux parents sains aient un enfant malade ?",["Chacun porte un allèle m masqué par M et l'a transmis à son enfant","L'un des deux parents est malade","L'allèle m est apparu sans venir des parents"]),
+ P("Complète le tableau de croisement des deux parents (gamètes du père en haut, de la mère à gauche).",["M","m"],["M","m"],["M/M","M/m","M/m","m/m"]),
+ N("Quel est le risque que le second enfant soit malade ?",25),
+ N("Quel est le pourcentage d'enfants sains mais porteurs de l'allèle m ?",50),
+ Q("Le phénotype [malade] est ici un phénotype…",["nouveau (absent chez les parents)","parental (présent chez les parents)"])]}]},
+geo:{t:"Éval 2 · Risques naturels, séismes, volcans, plaques",min:30,secs:[
+{id:"A",t:"A. Les risques naturels",tip:"Aléa = événement dangereux ; enjeu = ce qui est exposé ; risque = aléa + enjeux. Un fort aléa sans enjeu donne un risque faible. Prévention = mesures pour réduire les dégâts.",qs:[
+ Q("Un aléa est…",["un événement naturel potentiellement dangereux","les personnes et biens exposés","un plan de secours"]),
+ Q("Un enjeu est…",["ce qui peut être touché par un aléa (personnes, biens, environnement)","un événement naturel dangereux","une mesure de prévention"]),
+ Q("Le risque correspond à…",["la combinaison d'un aléa et d'enjeux exposés","la force du séisme uniquement","le nombre de volcans actifs"]),
+ Q("Un fort séisme a lieu dans une région totalement inhabitée. Le risque est…",["faible, car il n'y a presque aucun enjeu exposé","très élevé, car l'aléa est fort","impossible à évaluer"]),
+ Q("Quelle est une mesure de prévention ?",["Construire des bâtiments parasismiques","Attendre la fin du séisme","Construire au bord d'une faille"])]},
+{id:"B",t:"B. Les séismes",tip:"Foyer en profondeur sur la faille ; épicentre à la verticale en surface (dégâts maximaux) ; magnitude = énergie libérée ; sismomètre → sismogramme ; tsunami = séisme fort sous l'océan.",qs:[
+ {q:"<b>Schéma d'un séisme.</b> Légende chaque lettre.",svg:1,f:"ABCDE".split("").map((l,i)=>({t:"sel",l:l+" =",o:NOMS,a:NOMS[i]}))},
+ Q("La magnitude mesure…",["l'énergie libérée par le séisme au foyer","les dégâts en surface","la durée de l'alerte"]),
+ Q("Quel instrument enregistre les séismes ?",["un sismomètre","un thermomètre","un baromètre"]),
+ Q("Pourquoi les dégâts sont-ils les plus importants à l'épicentre ?",["C'est le point de la surface le plus proche du foyer : les ondes y arrivent avec le plus d'énergie","Les bâtiments y sont plus fragiles","Les ondes ne se propagent qu'en surface"]),
+ Q("Dans quel cas un séisme peut-il provoquer un tsunami ?",["Séisme de forte magnitude sous l'océan, qui déplace une grande masse d'eau","Séisme à l'intérieur des terres d'un continent","Séisme de faible magnitude très profond"])]},
+{id:"C",t:"C. Les volcans",tip:"Éruption effusive : lave fluide, coulées calmes. Éruption explosive : lave visqueuse, explosions, cendres, nuées ardentes. Magma = en profondeur avec gaz ; lave = en surface sans gaz. Éruption déclenchée par la montée du magma sous la pression des gaz.",qs:[
+ {q:"<b>Compare les deux types de volcans.</b>",f:[
+  {l:"Effusif · lave :",o:["fluide","visqueuse"],a:"fluide"},{l:"Effusif · éruption :",o:["calme","violente"],a:"calme"},{l:"Effusif · produits :",o:["coulées de lave","cendres et nuées ardentes"],a:"coulées de lave"},
+  {l:"Explosif · lave :",o:["fluide","visqueuse"],a:"visqueuse"},{l:"Explosif · éruption :",o:["calme","violente"],a:"violente"},{l:"Explosif · produits :",o:["coulées de lave","cendres et nuées ardentes"],a:"cendres et nuées ardentes"}].map(f=>({t:"sel",w:.5,...f}))},
+ Q("Quelle différence entre magma et lave ?",["Le magma est en profondeur et contient des gaz ; la lave est en surface et a perdu ses gaz","La lave est en profondeur et le magma en surface","Il n'y a aucune différence"]),
+ Q("Qu'est-ce qui déclenche une éruption ?",["La montée du magma sous la pression des gaz","Une forte pluie","Le passage d'une onde de marée"]),
+ Q("Comment peut-on prévoir une éruption ?",["En surveillant les séismes, les déformations du sol et les gaz","En observant la couleur du ciel","En mesurant la température de la mer"])]},
+{id:"D",t:"D. La tectonique des plaques",tip:"Divergence → dorsale océanique ; collision de deux plaques continentales → chaîne de montagnes ; convergence océan/continent → subduction et fosse océanique. Séismes et volcans se concentrent aux limites de plaques.",qs:[
+ Q("Une plaque lithosphérique est…",["un morceau rigide de la surface terrestre, limité par des zones de séismes et de volcans","un grand océan","une couche de magma liquide"]),
+ Q("Deux plaques océaniques s'écartent : il se forme…",["une dorsale océanique","une chaîne de montagnes","une fosse océanique"]),
+ Q("Deux plaques continentales entrent en collision : il se forme…",["une chaîne de montagnes","une dorsale océanique","une fosse océanique"]),
+ Q("Une plaque océanique et une plaque continentale convergent : il se forme…",["une fosse océanique","une chaîne de montagnes","une dorsale océanique"]),
+ Q("La subduction, c'est quand…",["une plaque océanique s'enfonce sous une autre plaque","deux plaques s'écartent","deux plaques coulissent sans bouger"]),
+ Q("Les séismes et les volcans se concentrent…",["aux limites des plaques","au centre des plaques","partout de façon égale"])]}]}};
+// ====== OUTILS ======
+const $=id=>document.getElementById(id);
+for(const k in EV){const e=EV[k];e.F=[];e.secs.forEach(s=>s.qs.forEach((q,qi)=>{q.id=s.id+(qi+1);q.f.forEach((f,fi)=>{f.id=q.id+(q.f.length>1?"."+(fi+1):"");f.sec=s.id;f.w=f.w||1;e.F.push(f)})}));e.W=e.F.reduce((a,f)=>a+f.w,0);e.SC=20/e.W}
+const gk=s=>{s=(s||"").replace(/\s/g,"");let t=s.includes("/")?s.split("/"):(s.match(/rh[+-]/gi)||s.split(""));return t.filter(Boolean).map(x=>/^rh/i.test(x)?"Rh"+x.slice(2):x).sort().join("/")};
+const gradeF=(f,v)=>{v=(v||"").toString().trim();if(!v)return 0;
+ if(f.t==="sel")return v===f.a?f.w:0;if(f.t==="gen")return gk(v)===gk(f.a)?f.w:0;
+ return parseFloat(v.replace(",",".").replace("%",""))===f.a?f.w:0};
+const shuf=a=>a.map(x=>[Math.random(),x]).sort((a,b)=>a[0]-b[0]).map(x=>x[1]);
+const fmt=n=>(Math.round(n*10)/10).toString().replace(".",",");
+const ld=k=>{try{return JSON.parse(localStorage.getItem(KEY+k))}catch(e){return null}};
+const sv=()=>{try{localStorage.setItem(KEY+S.ev,JSON.stringify(S))}catch(e){}};
+let S=null,E=null,tick=null;
+async function send(p){p.token=TOKEN;if(!SHEET_URL)return false;
+ try{await fetch(SHEET_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain"},body:JSON.stringify(p)});return true}
+ catch(e){const q=JSON.parse(localStorage.getItem(KEY+"-q")||"[]");q.push(p);localStorage.setItem(KEY+"-q",JSON.stringify(q));return false}}
+async function flush(){const q=JSON.parse(localStorage.getItem(KEY+"-q")||"[]");if(!q.length||!SHEET_URL)return;localStorage.removeItem(KEY+"-q");for(const p of q)await send(p)}
+// ====== ACCUEIL ======
+function home(){let h="";for(const k in EV){const st=ld(k);
+ h+=`<div class="card"><h2>${EV[k].t}</h2><p class="sub">${EV[k].min} minutes · 20 points${st&&st.done?" · terminé : <b>"+fmt(st.result.total)+" / 20</b>":st?" · en cours":""}</p><button data-k="${k}">${st&&st.done?"Voir le résultat":st?"Reprendre":"Commencer"}</button></div>`}
+ $("list").innerHTML=h;$("list").querySelectorAll("button").forEach(b=>b.onclick=()=>open(b.dataset.k))}
+function open(k){let st=ld(k);E=EV[k];
+ if(!st){st={ev:k,name:$("name").value.trim()||"Aya",start:Date.now(),ans:{},blurs:0,done:false};S=st;sv();send({type:"start",name:S.name,at:new Date().toISOString(),app:"svt-"+k})}
+ S=st;if(S.done){showRes(true);return}
+ $("home").classList.add("hide");$("exam").classList.remove("hide");render();timer()}
+function timer(){$("bar").classList.remove("hide");$("where").textContent=E.t;const D=E.min*60;
+ const u=()=>{const l=Math.max(0,D-Math.floor((Date.now()-S.start)/1000));$("timer").textContent=String(Math.floor(l/60)).padStart(2,"0")+":"+String(l%60).padStart(2,"0");$("timer").classList.toggle("low",l<=300);if(l<=0){clearInterval(tick);finish(true)}};u();tick=setInterval(u,500)}
+function ctl(f){const v=S.ans[f.id]||"",id=`data-f="${f.id}"`;
+ if(f.t==="sel")return`<select ${id}><option value="">— choisir —</option>${shuf(f.o).map(o=>`<option${o===v?" selected":""}>${o}</option>`).join("")}</select>`;
+ return`<input ${id} value="${v}" autocomplete="off" ${f.t==="gen"?'placeholder="ex : M/m"':'inputmode="numeric" size="4"'}>${f.u||""}`}
+function render(){let h="";E.secs.forEach(s=>{h+=`<div class="card"><h2>${s.t}</h2>`;
+ s.qs.forEach(q=>{h+=`<div class="q"><div>${q.q}</div>`;if(q.svg)h+=SCHEMA;
+  if(q.g){const c=q.f;h+=`<table class="g"><tr><th></th>${q.g.top.map(x=>`<th>${x}</th>`).join("")}</tr>${[0,1].map(r=>`<tr><th>${q.g.left[r]}</th>${[0,1].map(c2=>`<td>${ctl(c[r*2+c2])}</td>`).join("")}</tr>`).join("")}</table>`}
+  else q.f.forEach(f=>{h+=`<div class="fl">${f.l?`<span>${f.l}</span>`:""}${ctl(f)}</div>`});h+="</div>"});h+="</div>"});
+ $("qs").innerHTML=h;document.querySelectorAll("[data-f]").forEach(el=>el.addEventListener("input",()=>{S.ans[el.dataset.f]=el.value;sv()}))}
+async function finish(auto){if(S.done&&S.result)return;S.done=true;clearInterval(tick);
+ const dur=Math.min(E.min*60,Math.round((Date.now()-S.start)/1000));
+ const det=E.F.map(f=>({id:f.id,sec:f.sec,rep:S.ans[f.id]||"",att:f.a,max:f.w*E.SC,pts:gradeF(f,S.ans[f.id])*E.SC}));
+ const total=det.reduce((a,d)=>a+d.pts,0);S.result={det,total,dur,auto:!!auto};sv();
+ const sent=await send({type:"svt",ev:S.ev,name:S.name,at:new Date().toISOString(),total,dur,auto:!!auto,blurs:S.blurs,det});showRes(sent)}
+function band(n){if(n>=16)return["Excellent","Tu maîtrises très bien ce programme. Relis seulement tes petites erreurs."];
+ if(n>=12)return["Bon travail","Tu es au-dessus de la moyenne. Retravaille les parties signalées ci-dessous."];
+ if(n>=8)return["Presque là","Les bases sont là. Relis ton cours sur les parties signalées, puis refais l'évaluation."];
+ return["À reprendre","Reprends le cours partie par partie (fiche de révision, manuel), puis refais l'évaluation. Tu progresseras vite."]}
+function showRes(sent){clearInterval(tick);E=EV[S.ev];$("bar").classList.add("hide");$("home").classList.add("hide");$("exam").classList.add("hide");$("res").classList.remove("hide");
+ const R=S.result,[t,m]=band(R.total);
+ let h=`<div class="card"><p class="sub">${S.name} · ${E.t} · ${Math.floor(R.dur/60)} min ${R.dur%60} s${R.auto?" · temps écoulé":""}</p><div class="big">${fmt(R.total)} / 20</div><h2>${t}</h2><p>${m}</p>
+ <p class="sub">${sent?"Résultat envoyé.":SHEET_URL?"Envoi impossible : il sera renvoyé à la prochaine ouverture.":"Résultat enregistré sur cet appareil uniquement."}</p></div><div class="card"><h2>Par partie</h2>`;let tips="";
+ E.secs.forEach(s=>{const d=R.det.filter(x=>x.sec===s.id),g=d.reduce((a,x)=>a+x.pts,0),mx=d.reduce((a,x)=>a+x.max,0),p=Math.round(g/mx*100);
+  h+=`<div class="lv"><span>${s.t}</span><span class="t"><i style="width:${p}%"></i></span><span>${p}%</span></div>`;if(p<60)tips+=`<div class="tip"><b>${s.t}</b><br>${s.tip}</div>`});
+ h+=`</div><div class="card"><h2>À retravailler</h2>${tips||"<p><b>Toutes les parties sont bien maîtrisées.</b></p>"}</div><div class="card"><h2>Correction</h2>`;
+ E.secs.forEach(s=>{h+=`<p><b>${s.t}</b></p>`;s.qs.forEach(q=>q.f.forEach(f=>{const d=R.det.find(x=>x.id===f.id),ok=d.pts>=d.max-1e-9,lab=(q.q.replace(/<[^>]+>/g,"").slice(0,70))+(f.l?" – "+f.l:"");
+  h+=`<div class="r ${ok?"y":"n"}">${ok?"✓":"✗"} ${lab}${q.f.length===0?"":ok?"":` — ta réponse : <i>${d.rep||"—"}</i> · attendu : <b>${f.a}</b>`}</div>`}))});
+ h+=`</div><p><button class="sec" id="back">Retour à l'accueil</button> <button class="sec" id="again">Refaire cette évaluation</button></p>`;$("res").innerHTML=h;
+ $("back").onclick=()=>location.reload();$("again").onclick=()=>{if(confirm("Effacer cet essai et recommencer ?")){localStorage.removeItem(KEY+S.ev);location.reload()}}}
+$("done").onclick=()=>{if(confirm("Terminer et envoyer l'évaluation ?"))finish(false)};
+if(!SHEET_URL)$("cfgwarn").classList.remove("hide");
+document.addEventListener("visibilitychange",()=>{if(S&&!S.done&&document.hidden){S.blurs++;sv()}});
+flush();home();
+for(const k in EV){const st=ld(k);if(st&&!st.done){open(k);break}}
+</script></body></html>
